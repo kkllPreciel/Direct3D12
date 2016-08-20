@@ -60,7 +60,8 @@ int Win32Frame::Run(Application* pApplication, HINSTANCE hInstance, int nCmdShow
 		}
 		else
 		{
-
+			pApplication->OnUpdate();
+			pApplication->OnRender();
 		}
 	}
 
@@ -97,10 +98,10 @@ LRESULT CALLBACK Win32Frame::WindowProc(HWND hWnd, UINT message, WPARAM wParam, 
 	case WM_DESTROY:
 		PostQuitMessage(0);
 		return 0;
-	case WM_SETCURSOR:
-		// マウスを消す
-		ShowCursor(false);
-		break;
+	//case WM_SETCURSOR:
+	//	// マウスを消す
+	//	ShowCursor(false);
+	//	break;
 	}
 
 	// Handle any messages the switch statement didn't.

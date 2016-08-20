@@ -9,6 +9,7 @@
 // include
 #include <Windows.h>
 #include "Win32Frame.h"
+#include "HelloWindow.h"
 
 // デバッグ用(メモリリーク)
 #ifdef _DEBUG
@@ -35,6 +36,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow)
 	_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
 #endif
 
-	//D3D12HelloWindow sample(1280, 720, L"D3D12 Hello Window");
-	return Win32Frame::Run(nullptr, hInstance, nCmdShow);
+	HelloWindow sample(1280, 720, L"HelloWindow");
+	return Win32Frame::Run(&sample, hInstance, nCmdShow);
 }

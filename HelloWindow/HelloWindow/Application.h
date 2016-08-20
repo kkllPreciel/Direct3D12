@@ -9,7 +9,7 @@
 #pragma once
 
 // include
-#include <winnt.h>
+#include <Windows.h>
 #include <string>
 
 /**

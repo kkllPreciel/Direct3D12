@@ -2,7 +2,7 @@
  *	@file		HelloTriangle.h
  *	@brief		Direct3D12トライアングルに関するヘッダファイル
  *	@author		kkllPreciel
- *	@date		2016/10/09
+ *	@date		2016/10/15
  *	@version	1.0
  */
 
@@ -120,6 +120,13 @@ private:
 	 */
 	void LoadAssets();
 
+	/**
+	 *	@brief	コマンドリストを投入する(作成する)
+	 */
 	void PopulateCommandList();
+
+	/**
+	 *	@brief	描画終了待ちを行う
+	 */
 	void WaitForPreviousFrame();
 };

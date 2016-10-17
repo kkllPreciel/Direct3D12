@@ -2,7 +2,7 @@
  *	@file		HelloTriangle.cpp
  *	@brief		アプリケーションに関する処理を行うプログラムソース
  *	@author		kkllPreciel
- *	@date		2016/10/09
+ *	@date		2016/10/15
  *	@version	1.0
  */
 
@@ -19,7 +19,12 @@
  */
 HelloTriangle::HelloTriangle(unsigned int width, unsigned int height, std::wstring name) : Application(width, height, name)
 {
+	m_viewport.Width = static_cast<float>(width);
+	m_viewport.Height = static_cast<float>(height);
+	m_viewport.MaxDepth = 1.0f;
 
+	m_scissorRect.right = static_cast<LONG>(width);
+	m_scissorRect.bottom = static_cast<LONG>(height);
 }
 
 /**
@@ -36,6 +41,7 @@ HelloTriangle::~HelloTriangle()
 void HelloTriangle::OnInit()
 {
 	CreatePipeline();
+	LoadAssets();
 }
 
 /**
@@ -58,14 +64,10 @@ void HelloTriangle::CreatePipeline()
 	ComPtr<IDXGIFactory4> factory;
 
 	// ファクトリの作成
-	if (FAILED(CreateDXGIFactory1(IID_PPV_ARGS(&factory))))
-		throw;
+	helper::ThrowIfFailed(CreateDXGIFactory1(IID_PPV_ARGS(&factory)));
 
 	// デバイスの生成
-	{
-		if (FAILED(D3D12CreateDevice(nullptr, D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&m_device))))
-			throw;
-	}
+	helper::ThrowIfFailed(D3D12CreateDevice(nullptr, D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&m_device)));
 
 	// コマンドキューの生成
 	{
@@ -159,24 +161,6 @@ void HelloTriangle::CreatePipeline()
 			rtvHandle.ptr += 1 * m_rtvDescriptorSize;
 		}
 	}
-
-	// Directx12では描画の終了待ちを自動で行わない(同期が取れず画面がおかしくなる)
-	// そのため同期を取るためのオブジェクト(フェンス)を作成する
-	// Create synchronization objects.
-	{
-		if (FAILED(m_device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&m_fence))))
-			throw;
-
-		m_fenceValue = 1;
-
-		// Create an event handle to use for frame synchronization.
-		m_fenceEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
-		if (m_fenceEvent == nullptr)
-		{
-			if (FAILED(HRESULT_FROM_WIN32(GetLastError())))
-				throw;
-		}
-	}
 }
 
 /**
@@ -266,6 +250,7 @@ void HelloTriangle::LoadAssets()
 		for (UINT i = 0; i < D3D12_SIMULTANEOUS_RENDER_TARGET_COUNT; ++i)
 			blend_desc.RenderTarget[i] = defaultRenderTargetBlendDesc;
 
+		psoDesc.BlendState = blend_desc;
 		psoDesc.DepthStencilState.DepthEnable = FALSE;
 		psoDesc.DepthStencilState.StencilEnable = FALSE;
 		psoDesc.SampleMask = UINT_MAX;
@@ -344,6 +329,43 @@ void HelloTriangle::LoadAssets()
 		m_vertexBufferView.StrideInBytes = sizeof(Vertex);
 		m_vertexBufferView.SizeInBytes = vertexBufferSize;
 	}
+
+	// Directx12では描画の終了待ちを自動で行わない(同期が取れず画面がおかしくなる)
+	// そのため同期を取るためのオブジェクト(フェンス)を作成する
+	// Create synchronization objects.
+	{
+		if (FAILED(m_device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&m_fence))))
+			throw;
+
+		m_fenceValue = 1;
+
+		// Create an event handle to use for frame synchronization.
+		m_fenceEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
+		if (m_fenceEvent == nullptr)
+		{
+			if (FAILED(HRESULT_FROM_WIN32(GetLastError())))
+				throw;
+		}
+		
+		// WAITING FOR THE FRAME TO COMPLETE BEFORE CONTINUING IS NOT BEST PRACTICE.
+		// This is code implemented as such for simplicity. The D3D12HelloFrameBuffering
+		// sample illustrates how to use fences for efficient resource usage and to
+		// maximize GPU utilization.
+
+		// Signal and increment the fence value.
+		const UINT64 fence = m_fenceValue;
+		helper::ThrowIfFailed(m_commandQueue->Signal(m_fence.Get(), fence));
+		m_fenceValue++;
+
+		// Wait until the previous frame is finished.
+		if (m_fence->GetCompletedValue() < fence)
+		{
+			helper::ThrowIfFailed(m_fence->SetEventOnCompletion(fence, m_fenceEvent));
+			WaitForSingleObject(m_fenceEvent, INFINITE);
+		}
+
+		m_frameIndex = m_swapChain->GetCurrentBackBufferIndex();
+	}
 }
 
 /**
@@ -359,89 +381,16 @@ void HelloTriangle::OnUpdate()
  */
 void HelloTriangle::OnRender()
 {
-	// Command list allocators can only be reset when the associated 
-	// command lists have finished execution on the GPU; apps should use 
-	// fences to determine GPU execution progress.
-	// コマンドアロケータをリセットする(バッファを全て開放する)
-	if (FAILED(m_commandAllocator->Reset()))
-		throw;
-
-	// However, when ExecuteCommandList() is called on a particular command 
-	// list, that command list can then be reset at any time and must be before 
-	// re-recording.
-	// コマンドリストをリセットする
-	if (FAILED(m_commandList->Reset(m_commandAllocator.Get(), m_pipelineState.Get())))
-		throw;
-
-	D3D12_RESOURCE_BARRIER barrier;
-	barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-	barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
-	barrier.Transition.pResource = m_renderTargets[m_frameIndex].Get();
-	barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_PRESENT;
-	barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
-	barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-
-	// Indicate that the back buffer will be used as a render target.
-	m_commandList->ResourceBarrier(1, &barrier);
-
-	D3D12_CPU_DESCRIPTOR_HANDLE rtvHandle;
-	rtvHandle.ptr = m_rtvHeap->GetCPUDescriptorHandleForHeapStart().ptr + m_frameIndex * m_rtvDescriptorSize;
-
-	// Record commands.
-	// コマンドを積む(レンダーターゲットを指定した色でクリアする)
-	const float clearColor[] = { 0.0f, 0.2f, 0.4f, 1.0f };
-	m_commandList->ClearRenderTargetView(rtvHandle, clearColor, 0, nullptr);
-
-	D3D12_RESOURCE_BARRIER barrier2;
-	barrier2.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-	barrier2.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
-	barrier2.Transition.pResource = m_renderTargets[m_frameIndex].Get();
-	barrier2.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
-	barrier2.Transition.StateAfter = D3D12_RESOURCE_STATE_PRESENT;
-	barrier2.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-
-	// Indicate that the back buffer will now be used to present.
-	m_commandList->ResourceBarrier(1, &barrier2);
-
-	// コマンドを積み終わったので閉じる
-	if (FAILED(m_commandList->Close()))
-		throw;
+	PopulateCommandList();
 
 	// Execute the command list.
-	// コマンドリストをコマンドキューに実行させる(コマンドキューに移している?)
 	ID3D12CommandList* ppCommandLists[] = { m_commandList.Get() };
 	m_commandQueue->ExecuteCommandLists(_countof(ppCommandLists), ppCommandLists);
 
 	// Present the frame.
-	if (FAILED(m_swapChain->Present(1, 0)))
-		throw;
+	helper::ThrowIfFailed(m_swapChain->Present(1, 0));
 
-	// WAITING FOR THE FRAME TO COMPLETE BEFORE CONTINUING IS NOT BEST PRACTICE.
-	// This is code implemented as such for simplicity. The D3D12HelloFrameBuffering
-	// sample illustrates how to use fences for efficient resource usage and to
-	// maximize GPU utilization.
-
-	// Signal and increment the fence value.
-	// 現在のFence値がコマンド終了後にFenceに書き込まれるようにする
-	const UINT64 fence = m_fenceValue;
-	if (FAILED(m_commandQueue->Signal(m_fence.Get(), fence)))
-		throw;
-	m_fenceValue++;
-
-	// Wait until the previous frame is finished.
-	// まだコマンドキューが終了していないことを確認する
-	// ここまででコマンドキューが終了してしまうとイベントが一切発火されなくなるのでチェックしている
-	if (m_fence->GetCompletedValue() < fence)
-	{
-		// このFenceにおいて、fvalue の値になったらイベントを発火させる
-		if (FAILED(m_fence->SetEventOnCompletion(fence, m_fenceEvent)))
-			throw;
-
-		// イベントが発火するまで待つ
-		WaitForSingleObject(m_fenceEvent, INFINITE);
-	}
-
-	m_frameIndex = m_swapChain->GetCurrentBackBufferIndex();
+	WaitForPreviousFrame();	
 }
 
 /**
@@ -450,4 +399,100 @@ void HelloTriangle::OnRender()
 void HelloTriangle::OnDestroy()
 {
 	CloseHandle(m_fenceEvent);
+}
+
+/**
+ *	@brief	コマンドリストを投入する(作成する)
+ */
+void HelloTriangle::PopulateCommandList()
+{
+	// Command list allocators can only be reset when the associated 
+	// command lists have finished execution on the GPU; apps should use 
+	// fences to determine GPU execution progress.
+	helper::ThrowIfFailed(m_commandAllocator->Reset());
+
+	// However, when ExecuteCommandList() is called on a particular command 
+	// list, that command list can then be reset at any time and must be before 
+	// re-recording.
+	helper::ThrowIfFailed(m_commandList->Reset(m_commandAllocator.Get(), m_pipelineState.Get()));
+
+	// Set necessary state.
+	m_commandList->SetGraphicsRootSignature(m_rootSignature.Get());
+	m_commandList->RSSetViewports(1, &m_viewport);
+	m_commandList->RSSetScissorRects(1, &m_scissorRect);
+
+	{
+		// Indicate that the back buffer will be used as a render target.
+		// m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(m_renderTargets[m_frameIndex].Get(), D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET));
+
+		D3D12_RESOURCE_BARRIER barrier;
+		barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+		barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+		barrier.Transition.pResource = m_renderTargets[m_frameIndex].Get();
+		barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_PRESENT;
+		barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
+		barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+
+		// Indicate that the back buffer will be used as a render target.
+		m_commandList->ResourceBarrier(1, &barrier);
+	}
+
+	{
+		// CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(m_rtvHeap->GetCPUDescriptorHandleForHeapStart(), m_frameIndex, m_rtvDescriptorSize);
+		// m_commandList->OMSetRenderTargets(1, &rtvHandle, FALSE, nullptr);
+
+		D3D12_CPU_DESCRIPTOR_HANDLE rtvHandle;
+		rtvHandle.ptr = m_rtvHeap->GetCPUDescriptorHandleForHeapStart().ptr + m_frameIndex * m_rtvDescriptorSize;
+		m_commandList->OMSetRenderTargets(1, &rtvHandle, FALSE, nullptr);
+
+		// Record commands.
+		const float clearColor[] = { 0.0f, 0.2f, 0.4f, 1.0f };
+		m_commandList->ClearRenderTargetView(rtvHandle, clearColor, 0, nullptr);
+		m_commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+		m_commandList->IASetVertexBuffers(0, 1, &m_vertexBufferView);
+		m_commandList->DrawInstanced(3, 1, 0, 0);
+	}
+
+	{
+		// Indicate that the back buffer will now be used to present.
+		// m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(m_renderTargets[m_frameIndex].Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT));
+
+		D3D12_RESOURCE_BARRIER barrier;
+		barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+		barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+		barrier.Transition.pResource = m_renderTargets[m_frameIndex].Get();
+		barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
+		barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_PRESENT;
+		barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+
+		// Indicate that the back buffer will be used as a render target.
+		m_commandList->ResourceBarrier(1, &barrier);
+	}
+
+	helper::ThrowIfFailed(m_commandList->Close());
+}
+
+/**
+ *	@brief	描画終了待ちを行う
+ */
+void HelloTriangle::WaitForPreviousFrame()
+{
+	// WAITING FOR THE FRAME TO COMPLETE BEFORE CONTINUING IS NOT BEST PRACTICE.
+	// This is code implemented as such for simplicity. The D3D12HelloFrameBuffering
+	// sample illustrates how to use fences for efficient resource usage and to
+	// maximize GPU utilization.
+
+	// Signal and increment the fence value.
+	const UINT64 fence = m_fenceValue;
+	helper::ThrowIfFailed(m_commandQueue->Signal(m_fence.Get(), fence));
+	m_fenceValue++;
+
+	// Wait until the previous frame is finished.
+	if (m_fence->GetCompletedValue() < fence)
+	{
+		helper::ThrowIfFailed(m_fence->SetEventOnCompletion(fence, m_fenceEvent));
+		WaitForSingleObject(m_fenceEvent, INFINITE);
+	}
+
+	m_frameIndex = m_swapChain->GetCurrentBackBufferIndex();
 }

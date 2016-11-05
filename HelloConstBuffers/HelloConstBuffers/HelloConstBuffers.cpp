@@ -1,13 +1,13 @@
 /**
- *	@file		HelloBundles.cpp
+ *	@file		HelloConstBuffers.cpp
  *	@brief		アプリケーションに関する処理を行うプログラムソース
  *	@author		kkllPreciel
- *	@date		2016/10/17
+ *	@date		2016/11/01
  *	@version	1.0
  */
 
 #include <d3dcompiler.h>
-#include "HelloBundles.h"
+#include "HelloConstBuffers.h"
 #include "Win32Frame.h"
 #include "Helper.h"
 
@@ -17,7 +17,7 @@
  *	@param	height:縦幅
  *	@param	name:アプリ名
  */
-HelloBundles::HelloBundles(unsigned int width, unsigned int height, std::wstring name) : Application(width, height, name)
+HelloConstBuffers::HelloConstBuffers(unsigned int width, unsigned int height, std::wstring name) : Application(width, height, name)
 {
 	m_viewport.Width = static_cast<float>(width);
 	m_viewport.Height = static_cast<float>(height);
@@ -30,7 +30,7 @@ HelloBundles::HelloBundles(unsigned int width, unsigned int height, std::wstring
 /**
  *	@brief	デストラクタ
  */
-HelloBundles::~HelloBundles()
+HelloConstBuffers::~HelloConstBuffers()
 {
 
 }
@@ -38,7 +38,7 @@ HelloBundles::~HelloBundles()
 /**
  *	@brief	初期化処理を行う
  */
-void HelloBundles::OnInit()
+void HelloConstBuffers::OnInit()
 {
 	CreatePipeline();
 	LoadAssets();
@@ -47,7 +47,7 @@ void HelloBundles::OnInit()
 /**
  *	@brief	パイプラインを作成する
  */
-void HelloBundles::CreatePipeline()
+void HelloConstBuffers::CreatePipeline()
 {
 #if defined(_DEBUG)
 	// Enable the D3D12 debug layer.
@@ -127,12 +127,23 @@ void HelloBundles::CreatePipeline()
 		rtvHeapDesc.NumDescriptors = FrameCount;				// ダブルバッファリング(フレーム、バック)をするので2つ作成
 		rtvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;		// 種別はレンダーターゲット
 		rtvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;	// シェーダからアクセスしない
-		if (FAILED(m_device->CreateDescriptorHeap(&rtvHeapDesc, IID_PPV_ARGS(&m_rtvHeap))))
-			throw;
+		helper::ThrowIfFailed(m_device->CreateDescriptorHeap(&rtvHeapDesc, IID_PPV_ARGS(&m_rtvHeap)));
 
 		// レンダーターゲット分のDescriptorのサイズを取得する
 		m_rtvDescriptorSize = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+
+
+		// コンスタントバッファ用DescriptorHeapを作成
+		// Describe and create a constant buffer view (CBV) descriptor heap.
+		// Flags indicate that this descriptor heap can be bound to the pipeline 
+		// and that descriptors contained in it can be referenced by a root table.
+		D3D12_DESCRIPTOR_HEAP_DESC cbvHeapDesc = {};
+		cbvHeapDesc.NumDescriptors = 1;
+		cbvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+		cbvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+		helper::ThrowIfFailed(m_device->CreateDescriptorHeap(&cbvHeapDesc, IID_PPV_ARGS(&m_cbvHeap)));
 	}
+
 
 	// スワップチェインのバッファを先に作成したDescriptorHeapに登録する
 	// Create frame resources.
@@ -153,21 +164,40 @@ void HelloBundles::CreatePipeline()
 /**
  *	@brief	アセットを読み込む
  */
-void HelloBundles::LoadAssets()
+void HelloConstBuffers::LoadAssets()
 {
-	// Create an empty root signature.
+	// Create a root signature consisting of a descriptor table with a single CBV.
 	{
-		D3D12_ROOT_SIGNATURE_DESC rootSignatureDesc;
+		D3D12_DESCRIPTOR_RANGE ranges[1];
+		ranges[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
+		ranges[0].NumDescriptors = 1;
+		ranges[0].BaseShaderRegister = 0;
+		ranges[0].RegisterSpace = 0;
+		ranges[0].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
-		rootSignatureDesc.NumParameters = 0;
-		rootSignatureDesc.pParameters = nullptr;
+		D3D12_ROOT_PARAMETER rootParameters[1];
+		rootParameters[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+		rootParameters[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_VERTEX;
+		rootParameters[0].DescriptorTable.NumDescriptorRanges = 1;
+		rootParameters[0].DescriptorTable.pDescriptorRanges = &ranges[0];
+
+		// Allow input layout and deny uneccessary access to certain pipeline stages.
+		D3D12_ROOT_SIGNATURE_FLAGS rootSignatureFlags =
+			D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT |
+			D3D12_ROOT_SIGNATURE_FLAG_DENY_HULL_SHADER_ROOT_ACCESS |
+			D3D12_ROOT_SIGNATURE_FLAG_DENY_DOMAIN_SHADER_ROOT_ACCESS |
+			D3D12_ROOT_SIGNATURE_FLAG_DENY_GEOMETRY_SHADER_ROOT_ACCESS |
+			D3D12_ROOT_SIGNATURE_FLAG_DENY_PIXEL_SHADER_ROOT_ACCESS;
+
+		D3D12_ROOT_SIGNATURE_DESC rootSignatureDesc;
+		rootSignatureDesc.NumParameters = _countof(rootParameters);
+		rootSignatureDesc.pParameters = rootParameters;
 		rootSignatureDesc.NumStaticSamplers = 0;
 		rootSignatureDesc.pStaticSamplers = nullptr;
-		rootSignatureDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
+		rootSignatureDesc.Flags = rootSignatureFlags;
 
 		ComPtr<ID3DBlob> signature;
 		ComPtr<ID3DBlob> error;
-
 		helper::ThrowIfFailed(D3D12SerializeRootSignature(&rootSignatureDesc, D3D_ROOT_SIGNATURE_VERSION_1, &signature, &error));
 		helper::ThrowIfFailed(m_device->CreateRootSignature(0, signature->GetBufferPointer(), signature->GetBufferSize(), IID_PPV_ARGS(&m_rootSignature)));
 	}
@@ -322,12 +352,59 @@ void HelloBundles::LoadAssets()
 	// バンドルの作成と記録
 	{
 		helper::ThrowIfFailed(m_device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_BUNDLE, m_bundleAllocator.Get(), m_pipelineState.Get(), IID_PPV_ARGS(&m_bundle)));
-		m_bundle->SetGraphicsRootSignature(m_rootSignature.Get());
 		m_bundle->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 		m_bundle->IASetVertexBuffers(0, 1, &m_vertexBufferView);
 		m_bundle->DrawInstanced(3, 1, 0, 0);
 		helper::ThrowIfFailed(m_bundle->Close());
 	}
+
+	// Create the constant buffer.
+	{
+		D3D12_HEAP_PROPERTIES properties;
+		properties.Type = D3D12_HEAP_TYPE_UPLOAD;
+		properties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
+		properties.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
+		properties.CreationNodeMask = 1;
+		properties.VisibleNodeMask = 1;
+
+		D3D12_RESOURCE_DESC resource_desc;
+		resource_desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+		resource_desc.Alignment = 0;
+		resource_desc.Width = 1024 * 64;
+		resource_desc.Height = 1;
+		resource_desc.DepthOrArraySize = 1;
+		resource_desc.MipLevels = 1;
+		resource_desc.Format = DXGI_FORMAT_UNKNOWN;
+		resource_desc.SampleDesc.Count = 1;
+		resource_desc.SampleDesc.Quality = 0;
+		resource_desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+		resource_desc.Flags = D3D12_RESOURCE_FLAG_NONE;
+
+
+		helper::ThrowIfFailed(m_device->CreateCommittedResource(
+			&properties,
+			D3D12_HEAP_FLAG_NONE,
+			&resource_desc,
+			D3D12_RESOURCE_STATE_GENERIC_READ,
+			nullptr,
+			IID_PPV_ARGS(&m_constantBuffer)));
+
+		// Describe and create a constant buffer view.
+		D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc = {};
+		cbvDesc.BufferLocation = m_constantBuffer->GetGPUVirtualAddress();
+		cbvDesc.SizeInBytes = (sizeof(ConstantBuffer) + 255) & ~255;	// CB size is required to be 256-byte aligned.
+		m_device->CreateConstantBufferView(&cbvDesc, m_cbvHeap->GetCPUDescriptorHandleForHeapStart());
+
+		// Initialize and map the constant buffers. We don't unmap this until the
+		// app closes. Keeping things mapped for the lifetime of the resource is okay.
+		ZeroMemory(&m_constantBufferData, sizeof(m_constantBufferData));
+
+		D3D12_RANGE readRange;
+		readRange.Begin = readRange.End = 0;	// We do not intend to read from this resource on the CPU.
+		helper::ThrowIfFailed(m_constantBuffer->Map(0, &readRange, reinterpret_cast<void**>(&m_pCbvDataBegin)));
+		memcpy(m_pCbvDataBegin, &m_constantBufferData, sizeof(m_constantBufferData));
+	}
+
 
 	// Directx12では描画の終了待ちを自動で行わない(同期が取れず画面がおかしくなる)
 	// そのため同期を取るためのオブジェクト(フェンス)を作成する
@@ -346,39 +423,30 @@ void HelloBundles::LoadAssets()
 				throw;
 		}
 		
-		// WAITING FOR THE FRAME TO COMPLETE BEFORE CONTINUING IS NOT BEST PRACTICE.
-		// This is code implemented as such for simplicity. The D3D12HelloFrameBuffering
-		// sample illustrates how to use fences for efficient resource usage and to
-		// maximize GPU utilization.
-
-		// Signal and increment the fence value.
-		const UINT64 fence = m_fenceValue;
-		helper::ThrowIfFailed(m_commandQueue->Signal(m_fence.Get(), fence));
-		m_fenceValue++;
-
-		// Wait until the previous frame is finished.
-		if (m_fence->GetCompletedValue() < fence)
-		{
-			helper::ThrowIfFailed(m_fence->SetEventOnCompletion(fence, m_fenceEvent));
-			WaitForSingleObject(m_fenceEvent, INFINITE);
-		}
-
-		m_frameIndex = m_swapChain->GetCurrentBackBufferIndex();
+		WaitForPreviousFrame();
 	}
 }
 
 /**
  *	@brief	更新処理を行う
  */
-void HelloBundles::OnUpdate()
+void HelloConstBuffers::OnUpdate()
 {
+	const float translationSpeed = 0.005f;
+	const float offsetBounds = 1.25f;
 
+	m_constantBufferData.offset.x += translationSpeed;
+	if (m_constantBufferData.offset.x > offsetBounds)
+	{
+		m_constantBufferData.offset.x = -offsetBounds;
+	}
+	memcpy(m_pCbvDataBegin, &m_constantBufferData, sizeof(m_constantBufferData));
 }
 
 /**
  *	@brief	描画処理を行う
  */
-void HelloBundles::OnRender()
+void HelloConstBuffers::OnRender()
 {
 	PopulateCommandList();
 
@@ -395,7 +463,7 @@ void HelloBundles::OnRender()
 /**
  *	@brief	終了処理を行う
  */
-void HelloBundles::OnDestroy()
+void HelloConstBuffers::OnDestroy()
 {
 	WaitForPreviousFrame();
 
@@ -405,7 +473,7 @@ void HelloBundles::OnDestroy()
 /**
  *	@brief	コマンドリストを投入する(作成する)
  */
-void HelloBundles::PopulateCommandList()
+void HelloConstBuffers::PopulateCommandList()
 {
 	// Command list allocators can only be reset when the associated 
 	// command lists have finished execution on the GPU; apps should use 
@@ -419,6 +487,11 @@ void HelloBundles::PopulateCommandList()
 
 	// Set necessary state.
 	m_commandList->SetGraphicsRootSignature(m_rootSignature.Get());
+
+	ID3D12DescriptorHeap* ppHeaps[] = { m_cbvHeap.Get() };
+	m_commandList->SetDescriptorHeaps(_countof(ppHeaps), ppHeaps);
+
+	m_commandList->SetGraphicsRootDescriptorTable(0, m_cbvHeap->GetGPUDescriptorHandleForHeapStart());
 	m_commandList->RSSetViewports(1, &m_viewport);
 	m_commandList->RSSetScissorRects(1, &m_scissorRect);
 
@@ -479,7 +552,7 @@ void HelloBundles::PopulateCommandList()
 /**
  *	@brief	描画終了待ちを行う
  */
-void HelloBundles::WaitForPreviousFrame()
+void HelloConstBuffers::WaitForPreviousFrame()
 {
 	// WAITING FOR THE FRAME TO COMPLETE BEFORE CONTINUING IS NOT BEST PRACTICE.
 	// This is code implemented as such for simplicity. The D3D12HelloFrameBuffering

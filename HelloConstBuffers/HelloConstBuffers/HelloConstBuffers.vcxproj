@@ -150,17 +150,13 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Application.cpp" />
-    <ClCompile Include="HelloBundles.cpp">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
-    </ClCompile>
+    <ClCompile Include="HelloConstBuffers.cpp" />
     <ClCompile Include="Main.cpp" />
     <ClCompile Include="Win32Frame.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Application.h" />
-    <ClInclude Include="HelloBundles.h">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
-    </ClInclude>
+    <ClInclude Include="HelloConstBuffers.h" />
     <ClInclude Include="Helper.h" />
     <ClInclude Include="Win32Frame.h" />
   </ItemGroup>

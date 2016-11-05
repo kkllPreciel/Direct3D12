@@ -24,15 +24,12 @@
     <ClCompile Include="Win32Frame.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
-    <ClCompile Include="HelloBundles.cpp">
+    <ClCompile Include="HelloConstBuffers.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Application.h">
-      <Filter>ヘッダー ファイル</Filter>
-    </ClInclude>
-    <ClInclude Include="HelloBundles.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
     <ClInclude Include="Helper.h">
@@ -41,8 +38,11 @@
     <ClInclude Include="Win32Frame.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
+    <ClInclude Include="HelloConstBuffers.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <FxCompile Include="shaders.hlsl" />
+    <CustomBuild Include="shaders.hlsl" />
   </ItemGroup>
 </Project>

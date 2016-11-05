@@ -9,7 +9,7 @@
 // include
 #include <Windows.h>
 #include "Win32Frame.h"
-#include "HelloBundles.h"
+#include "HelloConstBuffers.h"
 
 // デバッグ用(メモリリーク)
 #ifdef _DEBUG
@@ -36,6 +36,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow)
 	_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
 #endif
 
-	HelloBundles sample(1280, 720, L"HelloWindow");
+	HelloConstBuffers sample(1280, 720, L"HelloWindow");
 	return Win32Frame::Run(&sample, hInstance, nCmdShow);
 }

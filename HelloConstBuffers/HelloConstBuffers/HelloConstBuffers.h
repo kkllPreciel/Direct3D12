@@ -1,8 +1,8 @@
 /**
  *	@file		HelloBundles.h
- *	@brief		Direct3D12バンドルに関するヘッダファイル
+ *	@brief		Direct3D12コンスタントバッファに関するヘッダファイル
  *	@author		kkllPreciel
- *	@date		2016/10/17
+ *	@date		2016/10/25
  *	@version	1.0
  */
 
@@ -20,7 +20,7 @@ using namespace Microsoft::WRL;
 /**
  *	@brief	アプリケーションクラス
  */
-class HelloBundles : public Application
+class HelloConstBuffers : public Application
 {
 public:
 	/**
@@ -29,12 +29,12 @@ public:
 	 *	@param	height:縦幅
 	 *	@param	name:アプリ名
 	 */
-	HelloBundles(unsigned int width, unsigned int height, std::wstring name);
+	HelloConstBuffers(unsigned int width, unsigned int height, std::wstring name);
 
 	/**
 	 *	@brief	デストラクタ
 	 */
-	~HelloBundles();
+	~HelloConstBuffers();
 
 	/**
 	 *	@brief	初期化処理を行う
@@ -60,22 +60,22 @@ private:
 	/**
 	 *	@brief	コンストラクタ
 	 */
-	HelloBundles() = delete;
+	HelloConstBuffers() = delete;
 
 	/**
 	 *	@brief	コピーコンストラクタ
 	 *	@param	other:コピー元
 	 */
-	HelloBundles(const HelloBundles& other) = delete;
+	HelloConstBuffers(const HelloConstBuffers& other) = delete;
 
 	/**
 	 *	@brief	代入演算子オペレータ
 	 *	@param	other:代入元
 	 */
-	HelloBundles& operator = (const HelloBundles& other) = delete;
+	HelloConstBuffers& operator = (const HelloConstBuffers& other) = delete;
 
 private:
-	static const UINT FrameCount = 2;
+	static const UINT FrameCount = 2;	///< フレーム数
 
 	// Pipeline objects.
 	D3D12_VIEWPORT m_viewport;
@@ -88,6 +88,7 @@ private:
 	ComPtr<ID3D12CommandQueue> m_commandQueue;
 	ComPtr<ID3D12RootSignature> m_rootSignature;
 	ComPtr<ID3D12DescriptorHeap> m_rtvHeap;
+	ComPtr<ID3D12DescriptorHeap> m_cbvHeap;
 	ComPtr<ID3D12PipelineState> m_pipelineState;
 	ComPtr<ID3D12GraphicsCommandList> m_commandList;
 	ComPtr<ID3D12GraphicsCommandList> m_bundle;
@@ -108,9 +109,20 @@ private:
 		DirectX::XMFLOAT4 color;
 	};
 
+	/**
+	 *	@brief	コンスタントバッファ用構造体
+	 */
+	struct ConstantBuffer
+	{
+		DirectX::XMFLOAT4 offset;
+	};
+
 	// App resources.
 	ComPtr<ID3D12Resource> m_vertexBuffer;
 	D3D12_VERTEX_BUFFER_VIEW m_vertexBufferView;
+	ComPtr<ID3D12Resource> m_constantBuffer;
+	ConstantBuffer m_constantBufferData;
+	UINT8* m_pCbvDataBegin;
 
 	/**
 	 *	@brief	パイプラインを作成する

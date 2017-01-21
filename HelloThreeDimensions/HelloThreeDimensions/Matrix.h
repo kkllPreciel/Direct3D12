@@ -20,7 +20,7 @@ namespace Sein
 		/**
 		 *	@brief	行列構造体
 		 *
-		 *	列優先行列です。
+		 *	行優先行列です。
 		 */
 		struct Matrix
 		{
@@ -28,6 +28,31 @@ namespace Sein
 			 *	@brief	コンストラクタ
 			 */
 			Matrix();
+
+			/**
+			 *	@brief	引数付きコンストラクタ
+			 *	@param	m11:1行1列の値
+			 *	@param	m12:1行2列の値
+			 *	@param	m13:1行3列の値
+			 *	@param	m14:1行4列の値
+			 *	@param	m21:2行1列の値
+			 *	@param	m22:2行2列の値
+			 *	@param	m23:2行3列の値
+			 *	@param	m24:2行4列の値
+			 *	@param	m31:3行1列の値
+			 *	@param	m32:3行2列の値
+			 *	@param	m33:3行3列の値
+			 *	@param	m34:3行4列の値
+			 *	@param	m41:4行1列の値
+			 *	@param	m42:4行2列の値
+			 *	@param	m43:4行3列の値
+			 *	@param	m44:4行4列の値
+			 */
+			explicit Matrix(
+				float m11, float m12, float m13, float m14,
+				float m21, float m22, float m23, float m24,
+				float m31, float m32, float m33, float m34,
+				float m41, float m42, float m43, float m44 );
 
 			/**
 			 *	@brief	コピーコンストラクタ
@@ -202,24 +227,24 @@ namespace Sein
 			Matrix CreateIdentity();
 
 			/**
+			 *	@brief 転置を行う
+			 */
+			void Transpose();
+
+			/**
 			 *	@brief	転置行列を作成する
 			 *	@return	転置行列
 			 */
 			Matrix Transpose() const;
 
-			/**
-			 *	@brief 転置を行う
-			 */
-			void Transpose();
-
 			union
 			{
 				struct
 				{
-					float _11, _21, _31, _41;
-					float _12, _22, _32, _42;
-					float _13, _23, _33, _43;
-					float _14, _24, _34, _44;
+					float _11, _12, _13, _14;
+					float _21, _22, _23, _24;
+					float _31, _32, _33, _34;
+					float _41, _42, _43, _44;
 				};
 				float m[4][4];
 			};

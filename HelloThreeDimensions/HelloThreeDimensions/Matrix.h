@@ -73,13 +73,6 @@ namespace Sein
 			Matrix& operator = (const Matrix& matrix);
 
 			/**
-			 *	@brief	代入演算子
-			 *	@param	matrix:代入する値
-			 *	@return	代入結果
-			 */
-			Matrix& operator = (const Matrix& matrix);
-
-			/**
 			 *	@brief	加算代入演算子
 			 *	@param	matrix:加算する値
 			 *	@return	加算代入結果
@@ -156,7 +149,7 @@ namespace Sein
 			 *	@param	up:カメラの向き(上方向)
 			 *	@return	ビュー行列
 			 */
-			Matrix CreateLookAtLeftHanded(const Vector3D& eye, const Vector3D& lookat, const Vector3D& up);
+			static Matrix CreateLookAtLeftHanded(const Vector3D& eye, const Vector3D& lookat, const Vector3D& up);
 		
 			/**
 			 *	@brief	左手系の透視投影行列を作成する
@@ -166,7 +159,7 @@ namespace Sein
 			 *	@param	far:ファークリップ
 			 *	@return	透視投影行列
 			 */
-			Matrix CreatePerspectiveLeftHanded(float fovy, float aspect, float near, float far);
+			static Matrix CreatePerspectiveLeftHanded(float fovy, float aspect, float near, float far);
 		
 			/**
 			 *	@brief	左手系の正射影(平行投影)行列を作成する
@@ -176,28 +169,28 @@ namespace Sein
 			 *	@param	far:ファークリップ
 			 *	@return	正射影行列
 			 */
-			Matrix CreateOrthographicLeftHanded(float width, float height, float near, float far);
+			static Matrix CreateOrthographicLeftHanded(float width, float height, float near, float far);
 		
 			/**
 			 *	@brief	X軸の回転行列を作成する
 			 *	@param	angle:回転角度(ラジアン)
 			 *	@return	回転行列
 			 */
-			Matrix RotationX(float angle);
+			static Matrix RotationX(float angle);
 		
 			/**
 			 *	@brief	Y軸の回転行列を作成する
 			 *	@param	angle:回転角度(ラジアン)
 			 *	@return	回転行列
 			 */
-			Matrix RotationY(float angle);
+			static Matrix RotationY(float angle);
 		
 			/**
 			 *	@brief	Z軸の回転行列を作成する
 			 *	@param	angle:回転角度(ラジアン)
 			 *	@return	回転行列
 			 */
-			Matrix RotationZ(float angle);
+			static Matrix RotationZ(float angle);
 		
 			/**
 			 *	@brief	平行移動行列を作成する
@@ -206,14 +199,14 @@ namespace Sein
 			 *	@param	z:Z成分
 			 *	@return	平行移動行列
 			 */
-			Matrix Translation(float x, float y, float z);
+			static Matrix Translation(float x, float y, float z);
 		
 			/**
 			 *	@brief	平行移動行列を作成する
 			 *	@param	position:ベクトル
 			 *	@return	平行移動行列
 			 */
-			Matrix Translation(const Vector3D& position);
+			static Matrix Translation(const Vector3D& position);
 
 			/**
 			 *	@brief	単位行列化する
@@ -224,7 +217,7 @@ namespace Sein
 			 *	@brief	単位行列を作成する
 			 *	@return	単位行列
 			 */
-			Matrix CreateIdentity();
+			static Matrix CreateIdentity();
 
 			/**
 			 *	@brief 転置を行う

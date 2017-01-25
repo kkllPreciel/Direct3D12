@@ -245,7 +245,42 @@ namespace Sein
 		 *	@param	up:カメラの向き(上方向)
 		 *	@return	ビュー行列
 		 */
-		Matrix Matrix::CreateLookAtLeftHanded(const Vector3D& eye, const Vector3D& lookat, const Vector3D& up);
+		Matrix Matrix::CreateLookAtLeftHanded(const Vector3D& eye, const Vector3D& lookat, const Vector3D& up)
+		{
+			Vector3D zAxis(eye - lookat);
+
+			zAxis.Normalize();
+
+			Vector3D xAxis(Vector3D::CrossProduct(up, zAxis));
+
+			xAxis.Normalize();
+
+			Vector3D yAxis(Vector3D::CrossProduct(zAxis, xAxis));
+
+			Matrix matrix;
+
+			matrix._11 = xAxis.x;
+			matrix._12 = yAxis.x;
+			matrix._13 = zAxis.x;
+			matrix._14 = 0.0f;
+
+			matrix._21 = xAxis.y;
+			matrix._22 = yAxis.y;
+			matrix._23 = zAxis.y;
+			matrix._24 = 0.0f;
+
+			matrix._31 = xAxis.z;
+			matrix._32 = yAxis.z;
+			matrix._33 = zAxis.z;
+			matrix._34 = 0.0f;
+
+			matrix._41 = -Vector3D::DotProduct(xAxis, eye);
+			matrix._42 = -Vector3D::DotProduct(yAxis, eye);
+			matrix._43 = -Vector3D::DotProduct(zAxis, eye);
+			matrix._44 = 1.0f;
+
+			return matrix;
+		}
 		
 		/**
 		 *	@brief	左手系の透視投影行列を作成する
@@ -255,7 +290,17 @@ namespace Sein
 		 *	@param	far:ファークリップ
 		 *	@return	透視投影行列
 		 */
-		Matrix Matrix::CreatePerspectiveLeftHanded(float fovy, float aspect, float near, float far);
+		Matrix Matrix::CreatePerspectiveLeftHanded(float fovy, float aspect, float near, float far)
+		{
+			float yscale = 1 / tanf(fovy / 2.0f);
+			float xscale = yscale / aspect;
+
+			return Matrix(
+				xscale,	  0.0f,						  0.0f, 0.0f,
+				0.0f,	yscale,						  0.0f, 0.0f,
+				0.0f,	  0.0f,			far / (far - near), 1.0f,
+				0.0f,     0.0f,  -far * far / (far - near), 0.0f );
+		}
 		
 		/**
 		 *	@brief	左手系の正射影(平行投影)行列を作成する
@@ -265,28 +310,71 @@ namespace Sein
 		 *	@param	far:ファークリップ
 		 *	@return	正射影行列
 		 */
-		Matrix Matrix::CreateOrthographicLeftHanded(float width, float height, float near, float far);
+		Matrix Matrix::CreateOrthographicLeftHanded(float width, float height, float near, float far)
+		{
+			return Matrix(
+				2.0f / width, 0.0f, 0.0f, 0.0f,
+				0.0f, 2.0f / height, 0.0f, 0.0f,
+				0.0f, 0.0f, 1.0f / (far - near), 0.0f,
+				0.0f, 0.0f, -far / (far - near), 0.0f );
+		}
 		
 		/**
 		 *	@brief	X軸の回転行列を作成する
 		 *	@param	angle:回転角度(ラジアン)
 		 *	@return	回転行列
 		 */
-		Matrix Matrix::RotationX(float angle);
+		Matrix Matrix::RotationX(float angle)
+		{
+			Matrix matrix;
+
+			matrix.Identity();
+
+			matrix._22 = cos(angle);
+			matrix._23 = sin(angle);
+			matrix._32 = -sin(angle);
+			matrix._33 = cos(angle);
+
+			return matrix;
+		}
 		
 		/**
 		 *	@brief	Y軸の回転行列を作成する
 		 *	@param	angle:回転角度(ラジアン)
 		 *	@return	回転行列
 		 */
-		Matrix Matrix::RotationY(float angle);
+		Matrix Matrix::RotationY(float angle)
+		{
+			Matrix matrix;
+
+			matrix.Identity();
+
+			matrix._11 = cos(angle);
+			matrix._13 = sin(angle);
+			matrix._31 = -sin(angle);
+			matrix._33 = cos(angle);
+
+			return matrix;
+		}
 		
 		/**
 		 *	@brief	Z軸の回転行列を作成する
 		 *	@param	angle:回転角度(ラジアン)
 		 *	@return	回転行列
 		 */
-		Matrix Matrix::RotationZ(float angle);
+		Matrix Matrix::RotationZ(float angle)
+		{
+			Matrix matrix;
+
+			matrix.Identity();
+
+			matrix._11 = cos(angle);
+			matrix._12 = -sin(angle);
+			matrix._21 = sin(angle);
+			matrix._22 = cos(angle);
+
+			return matrix;
+		}
 		
 		/**
 		 *	@brief	平行移動行列を作成する
